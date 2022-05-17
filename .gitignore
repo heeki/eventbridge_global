@@ -1,0 +1,12 @@
+# directories
+src/*/__pycache__
+.vscode
+build
+tmp
+
+# files
+etc/*.sh
+etc/*.json
+iac/*_output.yaml
+build.toml
+notes.md

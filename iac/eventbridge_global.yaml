@@ -1,0 +1,142 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EventBridge global endpoints example
+Transform: AWS::Serverless-2016-10-31
+
+# Reference: https://global-endpoint-downloads.s3.amazonaws.com/global-endpoint-healthcheck.yaml
+Parameters:
+  pName:
+    Type: String
+  pHealthCheckName:
+    Type: String
+    Default: LatencyFailuresHealthCheck
+  pHighLatencyAlarmPeriod:
+    Description: The period, in seconds, over which the statistic is applied. Valid values are 10, 30, 60, and any multiple of 60.
+    MinValue: 10
+    Type: Number
+    Default: 60
+  pMinimumEvaluationPeriod:
+    Description: The number of periods over which data is compared to the specified threshold. You must have at least one evaluation period.
+    MinValue: 1
+    Type: Number
+    Default: 5
+  pMinimumThreshold:
+    Description: The value to compare with the specified statistic.
+    Type: Number
+    Default: 30000
+  pTreatMissingDataAs:
+    Description: Sets how this alarm is to handle missing data points.
+    Type: String
+    AllowedValues:
+      - breaching
+      - notBreaching
+      - ignore
+      - missing
+    Default: breaching
+  pSecondaryRegion:
+    Type: String
+  pEnableReplication:
+    Type: String
+  pBusArn1:
+    Type: String
+  pBusArn2:
+    Type: String
+Mappings:
+  "InsufficientDataMap":
+    "missing":
+      "HCConfig": "LastKnownStatus"
+    "breaching":
+      "HCConfig": "Unhealthy"
+Resources:
+  # Route53
+  Alarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: High Latency in Amazon EventBridge
+      MetricName: IngestionToInvocationStartLatency
+      Namespace: AWS/Events
+      Statistic: Average
+      Period: !Ref pHighLatencyAlarmPeriod
+      EvaluationPeriods: !Ref pMinimumEvaluationPeriod
+      Threshold: !Ref pMinimumThreshold
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: !Ref pTreatMissingDataAs
+  LatencyHealthCheck:
+      Type: AWS::Route53::HealthCheck
+      Properties:
+        HealthCheckTags:
+          - Key: Name
+            Value: !Ref pHealthCheckName
+        HealthCheckConfig:
+          Type: CLOUDWATCH_METRIC
+          AlarmIdentifier:
+            Name:
+              Ref: Alarm
+            Region: !Ref AWS::Region
+          InsufficientDataHealthStatus: !FindInMap [InsufficientDataMap, !Ref pTreatMissingDataAs, HCConfig]
+  # IAM
+  EndpointRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - events.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: '/service-role/'
+      Policies:
+        - PolicyName: eventbridge-rules
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - events:PutRule
+                  - events:PutTargets
+                  - events:DeleteRule
+                  - events:RemoveTargets
+                Resource: !Sub "arn:aws:events:*:${AWS::AccountId}:rule/global/GlobalEndpointManagedRule-*"
+        - PolicyName: eventbridge-events
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - events:PutEvents
+                Resource: !Sub "arn:aws:events:*:${AWS::AccountId}:event-bus/${pName}"
+        - PolicyName: iam
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/service-role/EndpointRole*"
+                Condition:
+                  StringLike:
+                    "iam:PassedToService": "events.amazonaws.com"
+  # EventBridge
+  Endpoint:
+    Type: AWS::Events::Endpoint
+    Properties:
+      Name: !Ref pName
+      RoutingConfig:
+        FailoverConfig:
+          Primary:
+            HealthCheck: !Sub "arn:aws:route53:::healthcheck/${LatencyHealthCheck}"
+          Secondary:
+            Route: !Ref pSecondaryRegion
+      ReplicationConfig:
+        State: !Ref pEnableReplication
+      RoleArn: !GetAtt EndpointRole.Arn
+      EventBuses:
+        - EventBusArn: !Ref pBusArn1
+        - EventBusArn: !Ref pBusArn2
+Outputs:
+  outEndpoint:
+    Value: !GetAtt Endpoint.Arn
+  outHealthCheck:
+    Value: !Ref LatencyHealthCheck
