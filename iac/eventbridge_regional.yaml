@@ -13,6 +13,8 @@ Parameters:
     Type: Number
   pFnTimeout:
     Type: Number
+  pTableArn:
+    Type: String
 Resources:
   # EventBridge
   Bus:
@@ -63,12 +65,30 @@ Resources:
                   - logs:PutLogEvents
                   - logs:DescribeLogStreams
                 Resource: 'arn:aws:logs:*:*:log-group:*:*'
+        - PolicyName: dynamodb
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Resource: !Ref pTableArn
   Fn:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../src
       Handler: fn.handler
       Role: !GetAtt FnRole.Arn
+      Environment:
+        Variables:
+          TABLE: !Select ["1", !Split ["/", !Select ["5", !Split [":", !Ref pTableArn]]]]
   FnLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:

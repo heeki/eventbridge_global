@@ -1,11 +1,13 @@
 import boto3
 import json
 import os
+from lib.ddb import AdptDynamoDB
 
 # initialization
-# session = boto3.session.Session()
-# client = session.client("events")
+session = boto3.session.Session()
 region = os.environ["AWS_REGION"]
+table = os.environ["TABLE"]
+ddb = AdptDynamoDB(session, table)
 
 # helper functions
 def build_response(code, body):
@@ -23,10 +25,11 @@ def build_response(code, body):
     return response
 
 def handler(event, context):
-    # output = build_response(200, json.dumps(event))
-    output = {
-        "region": region,
-        "event": event
-    }
-    print(json.dumps(output))
+    print(json.dumps(event))
+    output = event["detail"]
+    output["region"] = region
+    item = {k: {"S": v} for (k, v) in output.items()}
+    print(json.dumps(item))
+    response = ddb.put(item)
+    print(response)
     return output

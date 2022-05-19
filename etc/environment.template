@@ -1,36 +1,44 @@
-S3BUCKET_USE1=your-region1-deployment-bucket
-S3BUCKET_USW2=your-region2-deployment-bucket
+S3BUCKET_REGION1=your-region1-deployment-bucket
+S3BUCKET_REGION2=your-region2-deployment-bucket
 PROFILE=your-aws-cli-profile
 
 P_NAME=global
 P_FN_MEMORY=128
 P_FN_TIMEOUT=15
-
 P_REGION1=us-east-1
+P_REGION2=us-west-2
+
+DYNAMODB_STACK=eventbridge-dynamodb
+DYNAMODB_TEMPLATE=iac/dynamodb.yaml
+DYNAMODB_OUTPUT=iac/dynamodb_output.yaml
+DYNAMODB_PARAMS="ParameterKey=pRegion1,ParameterValue=${P_REGION1} ParameterKey=pRegion2,ParameterValue=${P_REGION2}"
+
+O_TABLE_ARN1=output-global-table-name-arn-for-region1
+O_TABLE_ARN2=output-global-table-name-arn-for-region2
+
 EVENTBRIDGE1_STACK=eventbridge-primary
 EVENTBRIDGE1_TEMPLATE=iac/eventbridge_regional.yaml
 EVENTBRIDGE1_OUTPUT=iac/eventbridge_regional_output.yaml
-EVENTBRIDGE1_PARAMS="ParameterKey=pName,ParameterValue=${P_NAME} ParameterKey=pFnMemory,ParameterValue=${P_FN_MEMORY} ParameterKey=pFnTimeout,ParameterValue=${P_FN_TIMEOUT}"
+EVENTBRIDGE1_PARAMS="ParameterKey=pName,ParameterValue=${P_NAME} ParameterKey=pFnMemory,ParameterValue=${P_FN_MEMORY} ParameterKey=pFnTimeout,ParameterValue=${P_FN_TIMEOUT} ParameterKey=pTableArn,ParameterValue=${O_TABLE_ARN1}"
 
-P_REGION2=us-west-2
 EVENTBRIDGE2_STACK=eventbridge-secondary
 EVENTBRIDGE2_TEMPLATE=iac/eventbridge_regional.yaml
 EVENTBRIDGE2_OUTPUT=iac/eventbridge_regional_output.yaml
-EVENTBRIDGE2_PARAMS="ParameterKey=pName,ParameterValue=${P_NAME} ParameterKey=pFnMemory,ParameterValue=${P_FN_MEMORY} ParameterKey=pFnTimeout,ParameterValue=${P_FN_TIMEOUT}"
+EVENTBRIDGE2_PARAMS="ParameterKey=pName,ParameterValue=${P_NAME} ParameterKey=pFnMemory,ParameterValue=${P_FN_MEMORY} ParameterKey=pFnTimeout,ParameterValue=${P_FN_TIMEOUT} ParameterKey=pTableArn,ParameterValue=${O_TABLE_ARN2}"
 
 O_EB1=output-arn-of-event-bus-in-region1
 O_EB2=output-arn-of-event-bus-in-region2
 O_FN1=tbd
 O_FN2=tbd
 
-P_SECONDARY_REGION=us-west-2
 P_ENABLE_REPLICATION=DISABLED
 P_BUS_ARN1=${O_EB1}
 P_BUS_ARN2=${O_EB2}
 EVENTBRIDGE_GLOBAL_STACK=eventbridge-global
 EVENTBRIDGE_GLOBAL_TEMPLATE=iac/eventbridge_global.yaml
 EVENTBRIDGE_GLOBAL_OUTPUT=iac/eventbridge_global_output.yaml
-EVENTBRIDGE_GLOBAL_PARAMS="ParameterKey=pName,ParameterValue=${P_NAME} ParameterKey=pSecondaryRegion,ParameterValue=${P_SECONDARY_REGION} ParameterKey=pEnableReplication,ParameterValue=${P_ENABLE_REPLICATION} ParameterKey=pBusArn1,ParameterValue=${P_BUS_ARN1} ParameterKey=pBusArn2,ParameterValue=${P_BUS_ARN2}"
+EVENTBRIDGE_GLOBAL_PARAMS="ParameterKey=pName,ParameterValue=${P_NAME} ParameterKey=pSecondaryRegion,ParameterValue=${P_REGION2} ParameterKey=pEnableReplication,ParameterValue=${P_ENABLE_REPLICATION} ParameterKey=pBusArn1,ParameterValue=${P_BUS_ARN1} ParameterKey=pBusArn2,ParameterValue=${P_BUS_ARN2}"
 
 O_ENDPOINTID=your-global-endpoint-id
 O_HEALTHCHECK=your-route53-healthcheck-id
+P_IDEMPOTENCE_TOKEN=60809fe5-5104-421f-8854-3c3fd4874494
